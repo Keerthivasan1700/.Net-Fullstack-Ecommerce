@@ -1,0 +1,58 @@
+name: Build & Deploy to IIS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-deploy:
+    runs-on: self-hosted   # Must be your Windows server with IIS installed
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore ./Ecommerce/Ecommerce.csproj
+        shell: powershell
+
+      - name: Build Project
+        run: dotnet build ./Ecommerce/Ecommerce.csproj --configuration Release --no-restore
+        shell: powershell
+
+      - name: Publish Project
+        run: dotnet publish ./Ecommerce/Ecommerce.csproj -c Release -o ./publish
+        shell: powershell
+
+      - name: Deploy to IIS
+        run: |
+          Import-Module WebAdministration
+
+          $appPoolName = "Ecommerce"
+          $siteName = "Ecommerce"
+          $publishPath = "$(Get-Location)\publish"
+
+          # Create App Pool if not exists
+          if (-not (Test-Path IIS:\AppPools\$appPoolName)) {
+              New-WebAppPool -Name $appPoolName
+          }
+
+          # Ensure App Pool is started
+          Start-WebAppPool -Name $appPoolName
+
+          # Create Site if not exists
+          if (-not (Test-Path IIS:\Sites\$siteName)) {
+              New-Website -Name $siteName -Port 9090 -PhysicalPath $publishPath -ApplicationPool $appPoolName
+          } else {
+              # Update Site physical path
+              Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value $publishPath
+          }
+
+          # Restart Site
+          Restart-WebItem "IIS:\Sites\$siteName"
+
+        shell: powershell
