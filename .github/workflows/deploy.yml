@@ -18,15 +18,15 @@ jobs:
           dotnet-version: '6.0.x'
 
       - name: Restore Dependencies
-        run: dotnet restore ./backend/YourSolution.sln
+        run: dotnet restore ./backend/EcommerceBackend.sln
         shell: powershell
 
       - name: Build Project
-        run: dotnet build ./backend/YourSolution.sln --configuration Release --no-restore
+        run: dotnet build ./backend/EcommerceBackend.sln --configuration Release --no-restore
         shell: powershell
 
       - name: Publish Backend
-        run: dotnet publish ./backend/YourSolution.sln -c Release -o ./publish/backend
+        run: dotnet publish ./backend/EcommerceBackend.sln -c Release -o ./publish/backend
         shell: powershell
 
       # ---- Frontend (React) ----
