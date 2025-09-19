@@ -6,28 +6,50 @@ on:
 
 jobs:
   build-deploy:
-    runs-on: self-hosted   # Must be your Windows server with IIS installed
+    runs-on: self-hosted   # Your Windows server with IIS installed
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # ---- Backend (ASP.NET) ----
       - name: Setup .NET 6
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.x'
 
       - name: Restore Dependencies
-        run: dotnet restore ./Ecommerce/Ecommerce.csproj
+        run: dotnet restore ./backend/YourSolution.sln
         shell: powershell
 
       - name: Build Project
-        run: dotnet build ./Ecommerce/Ecommerce.csproj --configuration Release --no-restore
+        run: dotnet build ./backend/YourSolution.sln --configuration Release --no-restore
         shell: powershell
 
-      - name: Publish Project
-        run: dotnet publish ./Ecommerce/Ecommerce.csproj -c Release -o ./publish
+      - name: Publish Backend
+        run: dotnet publish ./backend/YourSolution.sln -c Release -o ./publish/backend
         shell: powershell
 
+      # ---- Frontend (React) ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Frontend Dependencies
+        run: npm install
+        working-directory: ./frontend
+        shell: powershell
+
+      - name: Build Frontend
+        run: npm run build
+        working-directory: ./frontend
+        shell: powershell
+
+      - name: Copy Frontend to Publish
+        run: Copy-Item -Path "./frontend/build/*" -Destination "./publish/frontend" -Recurse -Force
+        shell: powershell
+
+      # ---- Deploy to IIS ----
       - name: Deploy to IIS
         run: |
           Import-Module WebAdministration
@@ -54,5 +76,4 @@ jobs:
 
           # Restart Site
           Restart-WebItem "IIS:\Sites\$siteName"
-
         shell: powershell
