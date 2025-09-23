@@ -1,3 +1,4 @@
+<<<<<<< HEAD
  
 name: .Net build and publish
  
@@ -36,3 +37,40 @@ name: ecommerce-api
 path: ./publish
  
  
+=======
+name: .Net build and publish
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj
+
+      - name: Build
+        run: dotnet build backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release
+
+      # - name: Test
+      #   run: dotnet test
+
+      - name: Publish
+        run: dotnet publish backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release --output ./publish
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecommerce-api
+          path: ./publish
+>>>>>>> 8de5169964d9aad49a05c3fdfcb9bd9e8aa51fe0
