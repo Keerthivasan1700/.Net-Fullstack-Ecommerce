@@ -19,8 +19,7 @@ jobs:
           dotnet-version: '7.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore 
-Backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj
+        run: dotnet restore Backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj
 
       - name: Build
         run: dotnet build Backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release
