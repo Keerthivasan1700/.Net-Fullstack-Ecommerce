@@ -19,16 +19,17 @@ jobs:
           dotnet-version: '7.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj
+        run: dotnet restore 
+Backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj
 
       - name: Build
-        run: dotnet build backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release
+        run: dotnet build Backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release
 
       # - name: Test
       #   run: dotnet test
 
       - name: Publish
-        run: dotnet publish backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release --output ./publish
+        run: dotnet publish Backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration Release --output ./publish
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
