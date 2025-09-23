@@ -1,79 +1,35 @@
-name: Build & Deploy to IIS
+name: .Net build and publish
 
 on:
-  push:
-    branches: [ "main" ]
-
+workflow_dispatch:
+ 
 jobs:
-  build-deploy:
-    runs-on: self-hosted   # Your Windows server with IIS installed
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+build:
+runs-on: ubuntu-latest
 
-      # ---- Backend (ASP.NET) ----
-      - name: Setup .NET 6
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.x'
+steps:
+- name: Checkout code
+uses: actions/checkout@v4
 
-      - name: Restore Dependencies
-        run: dotnet restore ./backend/EcommerceBackend.sln
-        shell: powershell
-
-      - name: Build Project
-        run: dotnet build ./backend/EcommerceBackend.sln --configuration Release --no-restore
-        shell: powershell
-
-      - name: Publish Backend
-        run: dotnet publish ./backend/EcommerceBackend.sln -c Release -o ./publish/backend
-        shell: powershell
-
-      # ---- Frontend (React) ----
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Frontend Dependencies
-        run: npm install
-        working-directory: ./frontend
-        shell: powershell
-
-      - name: Build Frontend
-        run: npm run build
-        working-directory: ./frontend
-        shell: powershell
-
-      - name: Copy Frontend to Publish
-        run: Copy-Item -Path "./frontend/build/*" -Destination "./publish/frontend" -Recurse -Force
-        shell: powershell
-
-      # ---- Deploy to IIS ----
-      - name: Deploy to IIS
-        run: |
-          Import-Module WebAdministration
-
-          $appPoolName = "Ecommerce"
-          $siteName = "Ecommerce"
-          $publishPath = "$(Get-Location)\publish"
-
-          # Create App Pool if not exists
-          if (-not (Test-Path IIS:\AppPools\$appPoolName)) {
-              New-WebAppPool -Name $appPoolName
-          }
-
-          # Ensure App Pool is started
-          Start-WebAppPool -Name $appPoolName
-
-          # Create Site if not exists
-          if (-not (Test-Path IIS:\Sites\$siteName)) {
-              New-Website -Name $siteName -Port 9090 -PhysicalPath $publishPath -ApplicationPool $appPoolName
-          } else {
-              # Update Site physical path
-              Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value $publishPath
-          }
-
-          # Restart Site
-          Restart-WebItem "IIS:\Sites\$siteName"
-        shell: powershell
+- name: Setup .NET
+uses: actions/setup-dotnet@v4
+with:
+dotnet-version: '7.0.x'
+ 
+- name: Restore dependencies
+run: dotnet restore backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj
+ 
+- name: Build
+run: dotnet build backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration release
+ 
+#- name: Test
+#run: dotnet test
+ 
+- name: Publish
+run: dotnet publish backend/EcommerceBackend.Application/EcommerceBackend.Application.csproj --configuration release --output ./publish
+ 
+- name: Upload artifacts
+uses: actions/upload-artifact@v4
+with:
+name: ecommerce-api
+path: ./publish
