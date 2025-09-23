@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -35,3 +35,67 @@ jobs:
         with:
           name: ecommerce-api
           path: ./publish
+
+deploy:
+    runs-on: self-hosted   # Windows Server with IIS
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ecommerce-api-publish
+          path: C:\Users\devops-test2\Documents\publish
+
+      - name: Deploy to IIS
+        shell: powershell
+        run: |
+          Import-Module WebAdministration
+
+          $appPool   = "ecommerce-api"
+          $siteName  = "ecommerce-api"
+          $sitePath  = "C:\inetpub\wwwroot\ecommerce-api"
+          $port      = 9090
+
+          # --- App Pool setup (No Managed Code) ---
+          if (-not (Test-Path "IIS:\AppPools\$appPool")) {
+              New-WebAppPool -Name $appPool
+          }
+          Set-ItemProperty "IIS:\AppPools\$appPool" -Name managedRuntimeVersion -Value ""
+          Set-ItemProperty "IIS:\AppPools\$appPool" -Name managedPipelineMode -Value "Integrated"
+          Start-WebAppPool -Name $appPool
+
+          # --- Site folder setup ---
+          if (-not (Test-Path $sitePath)) {
+              New-Item -ItemType Directory -Path $sitePath | Out-Null
+          }
+          if (Test-Path $sitePath) {
+              Remove-Item "$sitePath\*" -Recurse -Force
+          }
+          Copy-Item "C:\Users\devops-test2\Documents\publish\*" $sitePath -Recurse
+
+          # --- IIS Site setup ---
+          if (Test-Path "IIS:\Sites\$siteName") {
+              try {
+                  $state = (Get-Website -Name $siteName).State
+                  if ($state -eq "Started") { Stop-Website -Name $siteName }
+              } catch { Write-Host "Skipping Stop-Website, site not in valid state." }
+
+              Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value $sitePath
+              Set-ItemProperty "IIS:\Sites\$siteName" -Name applicationPool -Value $appPool
+
+              $existingBinding = Get-WebBinding -Name $siteName -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:${port}:" }
+              if (-not $existingBinding) {
+                  New-WebBinding -Name $siteName -Protocol "http" -Port $port -IPAddress "*"
+              }
+          }
+          else {
+              New-Website -Name $siteName -Port $port -PhysicalPath $sitePath -ApplicationPool $appPool
+          }
+
+          # --- Start Website safely ---
+          if (Test-Path "IIS:\Sites\$siteName") {
+              try {
+                  $state = (Get-Website -Name $siteName).State
+                  if ($state -ne "Started") { Start-Website -Name $siteName }
+              } catch { Write-Host "Skipping Start-Website, site not in valid state." }
+          }
