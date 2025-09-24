@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks; // <-- Needed for Task<>
 using EcommerceBackend.Business.src.Dtos.Order;
 using EcommerceBackend.Business.src.Services.Abstractions;
 using EcommerceBackend.Domain.src.Common;
@@ -11,7 +14,7 @@ namespace EcommerceBackend.Application.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _ordersService;
-        
+
         public OrdersController(IOrderService ordersService)
         {
             _ordersService = ordersService;
@@ -19,7 +22,7 @@ namespace EcommerceBackend.Application.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<ReadOrderDto>> GetAllOrdersAsync()
+        public async Task<ActionResult<IEnumerable<ReadOrderDto>>> GetAllOrdersAsync()
         {
             var orders = await _ordersService.GetOrdersWithDetailsdAsync();
             return Ok(orders);
