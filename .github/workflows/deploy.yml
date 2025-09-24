@@ -80,7 +80,7 @@ jobs:
           }
 
           # --- Ensure binding exists ---
-          $binding = Get-WebBinding -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:$port:" }
+          $binding = Get-WebBinding -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:${port}:" }
           if (-not $binding) {
               New-WebBinding -Name $appName -Protocol "http" -Port $port -IPAddress "*"
           }
