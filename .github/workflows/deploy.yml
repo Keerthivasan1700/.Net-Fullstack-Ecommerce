@@ -30,21 +30,60 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ecommerce-api      # <-- artifact name
+          name: ecommerce-api
           path: ./publish
 
-  deploy:                          # <-- moved under jobs:
+  deploy:
     runs-on: self-hosted   # Windows Server with IIS
     needs: build
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: ecommerce-api      # <-- must match upload name
+          name: ecommerce-api
           path: C:\Users\devops-test2\Documents\publish
 
       - name: Deploy to IIS
         shell: powershell
         run: |
           Import-Module WebAdministration
-          # (your deployment script here)
+
+          $appName   = "ecommerce-api"
+          $sitePath  = "C:\inetpub\wwwroot\$appName"
+          $port      = 9090
+
+          # --- Ensure IIS Service is running ---
+          Start-Service W3SVC
+
+          # --- App Pool setup ---
+          if (-not (Test-Path "IIS:\AppPools\$appName")) {
+              New-WebAppPool -Name $appName
+          }
+          Set-ItemProperty "IIS:\AppPools\$appName" -Name managedRuntimeVersion -Value ""
+          Set-ItemProperty "IIS:\AppPools\$appName" -Name managedPipelineMode -Value "Integrated"
+          Start-WebAppPool -Name $appName
+
+          # --- Site folder setup ---
+          if (-not (Test-Path $sitePath)) {
+              New-Item -ItemType Directory -Path $sitePath | Out-Null
+          }
+          Remove-Item "$sitePath\*" -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item "C:\Users\devops-test2\Documents\publish\*" $sitePath -Recurse
+
+          # --- Website setup ---
+          if (-not (Test-Path "IIS:\Sites\$appName")) {
+              New-Website -Name $appName -Port $port -PhysicalPath $sitePath -ApplicationPool $appName
+          }
+          else {
+              Set-ItemProperty "IIS:\Sites\$appName" -Name physicalPath -Value $sitePath
+              Set-ItemProperty "IIS:\Sites\$appName" -Name applicationPool -Value $appName
+          }
+
+          # --- Ensure binding exists ---
+          $binding = Get-WebBinding -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:$port:" }
+          if (-not $binding) {
+              New-WebBinding -Name $appName -Protocol "http" -Port $port -IPAddress "*"
+          }
+
+          # --- Start website safely ---
+          Start-Website -Name $appName -ErrorAction SilentlyContinue
