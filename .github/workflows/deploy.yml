@@ -50,7 +50,7 @@ jobs:
 
           $appName   = "ecommerce-api"
           $sitePath  = "C:\inetpub\wwwroot\$appName"
-          $port      = 9091
+          $port      = 5051
 
           # --- Ensure IIS service is running ---
           Start-Service W3SVC
@@ -95,3 +95,5 @@ jobs:
           
           # --- Start website safely ---
           Start-Website -Name $appName
+
+
