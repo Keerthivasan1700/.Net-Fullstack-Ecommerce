@@ -43,14 +43,26 @@ jobs:
           name: ecommerce-api
           path: C:\Users\devops-test2\Documents\publish
 
-      - name: Deploy to IIS
+      - name: Deploy to IIS (Auto Port)
         shell: powershell
         run: |
           Import-Module WebAdministration
 
           $appName   = "ecommerce-api"
           $sitePath  = "C:\inetpub\wwwroot\$appName"
-          $port      = 5051
+
+          # --- Find a free port ---
+          function Get-FreePort {
+              param([int]$startPort = 5000, [int]$endPort = 5999)
+              for ($p = $startPort; $p -le $endPort; $p++) {
+                  $inUse = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -eq $p }
+                  if (-not $inUse) { return $p }
+              }
+              throw "No free port found between $startPort and $endPort"
+          }
+
+          $port = Get-FreePort -startPort 5000 -endPort 5999
+          Write-Host "Allocated free port: $port"
 
           # --- Ensure IIS service is running ---
           Start-Service W3SVC
@@ -75,25 +87,16 @@ jobs:
               Stop-Website -Name $appName -ErrorAction SilentlyContinue
               Set-ItemProperty "IIS:\Sites\$appName" -Name physicalPath -Value $sitePath
               Set-ItemProperty "IIS:\Sites\$appName" -Name applicationPool -Value $appName
+
+              # Reset bindings
+              Get-WebBinding -Name $appName | Remove-WebBinding
+              New-WebBinding -Name $appName -Protocol "http" -Port $port -IPAddress "*"
           }
           else {
               New-Website -Name $appName -Port $port -PhysicalPath $sitePath -ApplicationPool $appName
           }
           
-          # --- Fix port binding conflicts ---
-          $binding = Get-WebBinding -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:${port}:" }
-          if ($binding -and $binding.ItemXPath -notlike "*$appName*") {
-              # If some other site has the port, remove it
-              Remove-WebBinding -Name $binding.Name -IPAddress "*" -Port $port -Protocol "http"
-          }
-          
-          # Ensure binding for our site
-          $binding = Get-WebBinding -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:${port}:" }
-          if (-not $binding) {
-              New-WebBinding -Name $appName -Protocol "http" -Port $port -IPAddress "*"
-          }
-          
           # --- Start website safely ---
           Start-Website -Name $appName
 
-
+          Write-Host "Website deployed at http://localhost:$port/"
