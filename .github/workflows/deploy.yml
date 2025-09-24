@@ -52,7 +52,7 @@ jobs:
           $sitePath  = "C:\inetpub\wwwroot\$appName"
           $port      = 9090
 
-          # --- Ensure IIS Service is running ---
+          # --- Ensure IIS service is running ---
           Start-Service W3SVC
 
           # --- App Pool setup ---
@@ -69,21 +69,29 @@ jobs:
           }
           Remove-Item "$sitePath\*" -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item "C:\Users\devops-test2\Documents\publish\*" $sitePath -Recurse
-
-          # --- Website setup ---
-          if (-not (Test-Path "IIS:\Sites\$appName")) {
-              New-Website -Name $appName -Port $port -PhysicalPath $sitePath -ApplicationPool $appName
-          }
-          else {
+          
+          # --- If site exists, stop and reconfigure ---
+          if (Test-Path "IIS:\Sites\$appName") {
+              Stop-Website -Name $appName -ErrorAction SilentlyContinue
               Set-ItemProperty "IIS:\Sites\$appName" -Name physicalPath -Value $sitePath
               Set-ItemProperty "IIS:\Sites\$appName" -Name applicationPool -Value $appName
           }
-
-          # --- Ensure binding exists ---
+          else {
+              New-Website -Name $appName -Port $port -PhysicalPath $sitePath -ApplicationPool $appName
+          }
+          
+          # --- Fix port binding conflicts ---
+          $binding = Get-WebBinding -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:${port}:" }
+          if ($binding -and $binding.ItemXPath -notlike "*$appName*") {
+              # If some other site has the port, remove it
+              Remove-WebBinding -Name $binding.Name -IPAddress "*" -Port $port -Protocol "http"
+          }
+          
+          # Ensure binding for our site
           $binding = Get-WebBinding -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.bindingInformation -eq "*:${port}:" }
           if (-not $binding) {
               New-WebBinding -Name $appName -Protocol "http" -Port $port -IPAddress "*"
           }
-
+          
           # --- Start website safely ---
-          Start-Website -Name $appName -ErrorAction SilentlyContinue
+          Start-Website -Name $appName
